@@ -37,7 +37,8 @@ fn main() {
     let foo = |x| {
         return 4
     };
-    let foo = |x| 4;
+    let foo = |x: i32| x*4;
+    foo(3); // 12
 
     // Classes, seperate data and implementation
     struct Foo {
@@ -58,17 +59,30 @@ fn main() {
     trait Bar {
         fn method(&self) -> i32;
     }
+    struct Baz {
+        size: u8
+    }
     impl Bar for Baz {
         fn method(&self) -> i32 {
-            
+           print!(self.size) 
         }
     }
+
+    let foo = Baz {
+        size: 1,
+    };
+    foo.method();
+
+    // Destructering on struct
+    let Baz { size } = foo;
+    print!(size);
 
     let mut a = vec![1, 2, 3];
     a.get(2);
 
     // Tuple. Fixed structure.
     let a = (5, String::from("hello"));
+    // Pattern matching
     fn bar((my_num, my_str): (u32, String)) {
 
     }

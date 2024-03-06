@@ -16,7 +16,8 @@
 				rustBuild = (pkgs.rustPlatform.buildRustPackage) {
 					pname = manifest.name;
 					version = manifest.version;
-					buildInpus = with pkgs; [ pkg-config ];
+					nativeBuildInputs = with pkgs; [ pkg-config ];
+					buildInputs = with pkgs; [ alsa-lib ];
 					cargoLock.lockFile = ./Cargo.lock;
 					src = ./.;
 				};
@@ -27,7 +28,7 @@
 					};
 					defaultPackage = rustBuild;
 					devShell = pkgs.mkShell {
-						packages = [ pkgs.cargo pkgs.rustc pkgs.rustfmt rustBuild ];
+						packages = [ pkgs.cargo pkgs.rustc pkgs.rustfmt ];
 						shellHook = ''
 						'';
 					};
