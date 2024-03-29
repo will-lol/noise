@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
 
     let config = configs
         .iter()
-        .filter(|x| x.channels() == 2)
+        .filter(|x| x.channels() == 1)
         .find(|x| x.sample_format() == SampleFormat::F32)
         .unwrap_or_else(|| configs.get(0).expect(""))
         .clone()
