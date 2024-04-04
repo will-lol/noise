@@ -1,18 +1,14 @@
-use std::f32::consts::PI;
-
 use cpal::{FromSample, Sample};
 
-use super::filter::Filter;
+use super::filter::{Filter, StreamFilter};
 
 pub struct Biquad {
-    pub a0: f32,
-    pub a1: f32,
-    pub a2: f32,
-    pub b0: f32,
-    pub b1: f32,
-    pub b2: f32,
+    coefs: super::coefs::Coefficients,
     xn1: f32,
     xn2: f32,
+    yn1: f32,
+    yn2: f32,
+    i: usize,
 }
 
 impl<T> Filter<T> for Biquad
@@ -20,64 +16,91 @@ where
     T: Sample + FromSample<f32>,
     f32: FromSample<T>,
 {
-    fn apply(&mut self, arr: &mut [T]) {
-        for val in arr.iter_mut() {
-            let v = val.to_sample::<f32>();
-            let out = (self.b0 / self.a0) * v
-                + (self.b1 / self.a0) * self.xn1
-                + (self.b2 / self.a0) * self.xn2
-                - (self.a1 / self.a0) * self.xn1
-                - (self.a2 / self.a0) * self.xn2;
-            *val = out.to_sample::<T>();
-            self.xn2 = self.xn1;
-            self.xn1 = v;
+    fn run(&mut self, input: T) -> T {
+        let out: f32;
+        let i = input.to_sample::<f32>();
+
+        if self.i == 0 {
+            out = self.coefs.b0 * i;
+        } else if self.i == 1 {
+            out = (self.coefs.b0 * i) + (self.coefs.b1 * self.xn1) - (self.coefs.a1 * self.yn1);
+        } else {
+            out = ((self.coefs.b0 * i) + (self.coefs.b1 * self.xn1) + (self.coefs.b2 * self.xn2))
+                - ((self.coefs.a1 * self.yn1) + (self.coefs.a2 * self.yn2));
         }
+
+        self.xn2 = self.xn1;
+        self.xn1 = i;
+
+        self.yn2 = self.yn1;
+        self.yn1 = out;
+
+        self.i += 1;
+
+        return out.to_sample();
     }
 }
 
 impl Biquad {
-    pub fn new(a0: f32, a1: f32, a2: f32, b0: f32, b1: f32, b2: f32) -> Self {
-        return Self {
-            a0,
-            a1,
-            a2,
-            b0,
-            b1,
-            b2,
+    pub fn new(coefs: &super::coefs::Coefficients) -> Self {
+        let mut coefs = *coefs;
+        Self::normalise_coefs(&mut coefs);
+
+        let filter = Self {
+            coefs,
+            yn1: 0.0,
+            yn2: 0.0,
             xn1: 0.0,
             xn2: 0.0,
+            i: 0,
         };
-    }
 
-    pub fn new_bandpass(sampling_frequency: f32, center_frequency: f32, q_factor: f32) -> Self {
-        let w = 2.0 * PI * (center_frequency / sampling_frequency);
-        let alpha = f32::sin(w) / 2.0 * q_factor;
-        return Self::new(
-            1.0 + alpha,
-            -2.0 * f32::cos(w),
-            1.0 - alpha,
-            q_factor * alpha,
-            0.0,
-            q_factor * alpha * -1.0,
-        );
+        return filter;
     }
+    pub fn set_coefs(&mut self, coefs: super::coefs::Coefficients) {
+        let mut coefs = coefs;
+        Self::normalise_coefs(&mut coefs);
+        self.coefs = coefs;
+    }
+    fn normalise_coefs(coefs: &mut super::coefs::Coefficients) {
+        let scale = 1.0 / coefs.a0;
+        coefs.a0 *= scale;
+        coefs.a1 *= scale;
+        coefs.a2 *= scale;
+        coefs.b0 *= scale;
+        coefs.b1 *= scale;
+        coefs.b2 *= scale;
+    }
+}
 
-    pub fn new_peaking_eq(
-        sampling_frequency: f32,
-        center_frequency: f32,
-        db: f32,
-        q_factor: f32,
-    ) -> Self {
-        let w = 2.0 * PI * (center_frequency / sampling_frequency);
-        let alpha = f32::sin(w) / 2.0 * q_factor;
-        let a = f32::powf(10.0, db / 40.0);
-        return Self::new(
-            1.0 + alpha / a,
-            -2.0 * f32::cos(w),
-            1.0 - alpha / a,
-            1.0 + alpha * a,
-            -2.0 * f32::cos(w),
-            1.0 - alpha * a,
-        );
+pub struct StreamBiquadFilter {
+    channels: u16,
+    filters: Vec<super::biquad::Biquad>,
+}
+
+impl StreamBiquadFilter {
+    pub fn new(channels: u16, biquad_coefs: &super::coefs::Coefficients) -> Self {
+        let filters: Vec<super::biquad::Biquad> = (0..channels)
+            .map(|_| super::biquad::Biquad::new(biquad_coefs))
+            .collect();
+        Self { channels, filters }
+    }
+}
+
+impl<T> StreamFilter<T> for StreamBiquadFilter
+where
+    T: cpal::Sample + cpal::FromSample<f32>,
+    f32: cpal::FromSample<T>,
+{
+    fn process(&mut self, data: &mut [T]) {
+        for i in 1..=(self.channels) {
+            data.iter_mut()
+                .skip((self.channels - i) as usize)
+                .step_by(self.channels as usize)
+                .for_each(|x| *x = self.filters[(i - 1) as usize].run(*x));
+        }
+    }
+    fn set_coefs(&mut self, coefs: super::coefs::Coefficients) {
+        self.filters.iter_mut().for_each(|x| x.set_coefs(coefs));
     }
 }
