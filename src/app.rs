@@ -1,4 +1,4 @@
-use crate::{constants, filter, noise};
+use crate::{constants, noise};
 
 pub struct App {
     pub currently_changing: usize,

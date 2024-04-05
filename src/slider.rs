@@ -1,4 +1,4 @@
-use crossterm::style::SetBackgroundColor;
+
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

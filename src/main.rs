@@ -1,10 +1,7 @@
-use core::time;
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
 
-use anyhow::Result;
+
+
+
 mod app;
 mod filter;
 mod constants;
@@ -12,10 +9,10 @@ mod noise;
 mod slider;
 mod ui;
 use app::App;
-use constants::{FREQUENCIES, MAXIMUM_DB, MINIMUM_DB};
+use constants::{MAXIMUM_DB, MINIMUM_DB};
 use cpal::traits::HostTrait;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -74,7 +71,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> anyhow::Res
 }
 
 fn main() -> anyhow::Result<()> {
-    let l = simple_logging::log_to_file("test.log", log::LevelFilter::Debug);
+    let _l = simple_logging::log_to_file("test.log", log::LevelFilter::Debug);
     let device = cpal::default_host()
         .default_output_device()
         .expect("No default output device detected");
@@ -91,7 +88,7 @@ fn main() -> anyhow::Result<()> {
     // run
     noise.play()?;
     let mut app = app::App::new(noise);
-    let res = run_app(&mut terminal, &mut app);
+    let _res = run_app(&mut terminal, &mut app);
 
     // post run
     disable_raw_mode()?;
