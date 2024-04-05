@@ -1,8 +1,7 @@
-
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Style, Styled, Stylize},
+    style::{Color, Style},
     widgets::{block::BlockExt, Block, Widget},
 };
 
@@ -31,12 +30,18 @@ impl<'a> Slider<'a> {
         let y_midpoint = (area.top() + area.bottom()) / 2;
 
         let px = (area.bottom() - area.top()) as f32 / 2.0;
-        let filled = px * (self.value / self.max);
+        let avg = (self.min + self.max) / 2.0;
+        let filled = px * ((self.value - avg) / (self.max - avg));
 
-        let top_region      = Rect::new(x_midpoint, area.top(), 1, f32::ceil(px - filled) as u16);
-        let green_region    = Rect::new(x_midpoint, y_midpoint - filled as u16, 1, filled as u16);
-        let red_region      = Rect::new(x_midpoint, y_midpoint, 1, (-1.0 * filled) as u16);
-        let bottom_region   = Rect::new(x_midpoint, y_midpoint + (-1.0 * filled) as u16, 1, px as u16 - ((-1.0 * filled) as u16));
+        let top_region = Rect::new(x_midpoint, area.top(), 1, f32::ceil(px - filled) as u16);
+        let green_region = Rect::new(x_midpoint, y_midpoint - filled as u16, 1, filled as u16);
+        let red_region = Rect::new(x_midpoint, y_midpoint, 1, (-1.0 * filled) as u16);
+        let bottom_region = Rect::new(
+            x_midpoint,
+            y_midpoint + (-1.0 * filled) as u16,
+            1,
+            px as u16 - ((-1.0 * filled) as u16),
+        );
 
         Block::new()
             .style(Style::default().bg(Color::Indexed(8)))
@@ -54,7 +59,8 @@ impl<'a> Slider<'a> {
             .style(Style::default().bg(Color::Indexed(8)))
             .render(bottom_region, buf);
 
-
+        let handle_region = Rect::new(x_midpoint - 1, (y_midpoint as f32 - filled - 1.0) as u16, 3, 2);
+        Block::bordered().style(Style::default().fg(Color::Indexed(1)).bg(Color::Indexed(8))).render(handle_region, buf);
     }
 }
 

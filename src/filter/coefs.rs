@@ -13,18 +13,18 @@ pub trait Bandpass {
 }
 
 impl Coefficients {
-    pub fn new_bandpass(sampling_frequency: f32, center_frequency: f32, q_factor: f32) -> Self {
-        let w = 2.0 * std::f32::consts::PI * (center_frequency / sampling_frequency);
-        let alpha = f32::sin(w) / 2.0 * q_factor;
-        return Self {
-            a0: 1.0 + alpha,
-            a1: -2.0 * f32::cos(w),
-            a2: 1.0 - alpha,
-            b0: q_factor * alpha,
-            b1: 0.0,
-            b2: q_factor * alpha * -1.0,
-        };
-    }
+    // pub fn new_bandpass(sampling_frequency: f32, center_frequency: f32, q_factor: f32) -> Self {
+    //     let w = 2.0 * std::f32::consts::PI * (center_frequency / sampling_frequency);
+    //     let alpha = f32::sin(w) / 2.0 * q_factor;
+    //     return Self {
+    //         a0: 1.0 + alpha,
+    //         a1: -2.0 * f32::cos(w),
+    //         a2: 1.0 - alpha,
+    //         b0: q_factor * alpha,
+    //         b1: 0.0,
+    //         b2: q_factor * alpha * -1.0,
+    //     };
+    // }
 
     pub fn new_peaking_eq(
         sampling_frequency: f32,

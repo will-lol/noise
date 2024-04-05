@@ -7,10 +7,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(noise: noise::NoiseMaker) -> App {
+    pub fn new(noise: noise::NoiseMaker, preset: [f32; constants::FREQUENCIES.len()]) -> App {
         App {
             currently_changing: 0,
-            vals: [0.0; constants::FREQUENCIES.len()],
+            vals: preset,
             noise,
         }
     }

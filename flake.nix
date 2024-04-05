@@ -28,7 +28,7 @@
 					};
 					defaultPackage = rustBuild;
 					devShell = pkgs.mkShell {
-						packages = [ pkgs.cava pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.pkg-config pkgs.alsa-lib pkgs.evcxr ];
+						packages = [ pkgs.cava pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.pkg-config pkgs.alsa-lib pkgs.evcxr rustBuild ];
 						shellHook = ''
 						'';
 					};

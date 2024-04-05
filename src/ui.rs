@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Constraint, Layout},
-    style::{Color, Style, Styled, Stylize},
+    style::{Color, Style},
     text::Text,
     widgets::{Block, Borders, Padding, Paragraph},
     Frame,
@@ -20,6 +20,8 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     let title_block = Block::default()
         .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Indexed(8)))
+        .padding(Padding::horizontal(1))
         .style(Style::default());
 
     let title = Paragraph::new(Text::styled(
@@ -32,6 +34,8 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     let status_block = Block::default()
         .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Indexed(8)))
+        .padding(Padding::horizontal(1))
         .style(Style::default());
 
     let status = Paragraph::new(Text::styled(
@@ -50,13 +54,9 @@ pub fn ui(f: &mut Frame, app: &App) {
         let slider_block = Block::default()
             .borders(Borders::ALL)
             .padding(Padding::uniform(1))
-            .border_type(match app.currently_changing {
-                c if c == i => ratatui::widgets::BorderType::Thick,
-                _ => ratatui::widgets::BorderType::Plain,
-            })
             .border_style(match app.currently_changing {
-                c if c == i => Style::default().fg(Color::Indexed(5)),
-                _ => Style::default().fg(Color::Indexed(0)),
+                c if c == i => Style::default().fg(Color::Indexed(1)),
+                _ => Style::default().fg(Color::Indexed(8)),
             })
             .style(Style::default());
 
