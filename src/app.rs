@@ -1,19 +1,17 @@
-use std::sync::{Arc, Mutex};
-
-use crate::filter;
+use crate::{constants, filter, noise};
 
 pub struct App {
-    pub currently_changing: u8,
-    pub vals: [i8; 7],
-    pub filter: Arc<Mutex<filter::biquad::StreamBiquadFilter>>,
+    pub currently_changing: usize,
+    pub vals: [f32; constants::FREQUENCIES.len()],
+    pub noise: noise::NoiseMaker,
 }
 
 impl App {
-    pub fn new(filter: Arc<Mutex<filter::biquad::StreamBiquadFilter>>) -> App {
+    pub fn new(noise: noise::NoiseMaker) -> App {
         App {
             currently_changing: 0,
-            vals: [0; 7],
-            filter,
+            vals: [0.0; constants::FREQUENCIES.len()],
+            noise,
         }
     }
 }

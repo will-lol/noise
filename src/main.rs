@@ -1,59 +1,84 @@
-use std::sync::{Arc, Mutex};
+use core::time;
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use anyhow::Result;
 mod app;
 mod filter;
+mod constants;
 mod noise;
-use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    FromSample, SampleFormat, SizedSample,
-};
+mod slider;
+mod ui;
+use app::App;
+use constants::{FREQUENCIES, MAXIMUM_DB, MINIMUM_DB};
+use cpal::traits::HostTrait;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use filter::filter::StreamFilter;
-use rand::{
-    distributions::{Distribution, Standard},
-    thread_rng, Rng,
-};
-use ratatui::{backend::CrosstermBackend, Terminal};
+use noise::NoiseMaker;
+use ratatui::{backend::{Backend, CrosstermBackend}, Terminal};
+
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> anyhow::Result<()> {
+    loop {
+        terminal.draw(|f| ui::ui(f, app))?;
+        if let Event::Key(key) = event::read()? {
+            // only register presses
+            if key.kind == event::KeyEventKind::Release {
+                continue;
+            }
+
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => {
+                    break;
+                },
+                KeyCode::Char('h') | KeyCode::Left | KeyCode::BackTab => {
+                    if app.currently_changing != 0 {
+                        app.currently_changing = app.currently_changing - 1;
+                    } else {
+                        app.currently_changing = app.vals.len() - 1;
+                    }
+                },
+                KeyCode::Char('j') | KeyCode::Down => {
+                    let mut val = app.vals[app.currently_changing] - constants::STEP;
+                    if val < MINIMUM_DB {
+                        val = MINIMUM_DB;
+                    }
+                    app.vals[app.currently_changing] = val;
+                    app.noise.set_filter_gain(app.currently_changing, app.vals[app.currently_changing]);
+                },
+                KeyCode::Char('k') | KeyCode::Up => {
+                    let mut val = app.vals[app.currently_changing] + constants::STEP;
+                    if val > MAXIMUM_DB {
+                        val = MAXIMUM_DB;
+                    }
+                    app.vals[app.currently_changing] = val;
+                    app.noise.set_filter_gain(app.currently_changing, app.vals[app.currently_changing]);
+                },
+                KeyCode::Char('l') | KeyCode::Right | KeyCode::Tab => {
+                    if (app.currently_changing as usize) != app.vals.len() - 1 {
+                        app.currently_changing = app.currently_changing + 1;
+                    } else {
+                        app.currently_changing = 0;
+                    }
+                }
+                _ => {},
+            }
+        }
+    }
+    return Ok(());
+
+}
 
 fn main() -> anyhow::Result<()> {
-    let host = cpal::default_host();
-    let device = host
+    let l = simple_logging::log_to_file("test.log", log::LevelFilter::Debug);
+    let device = cpal::default_host()
         .default_output_device()
-        .expect("No output device detected.");
-
-    let configs: Vec<_> = device
-        .supported_output_configs()
-        .expect("Error while querying configs.")
-        .collect();
-
-    let config = configs
-        .iter()
-        .filter(|x| x.channels() == 8)
-        .find(|x| x.sample_format() == SampleFormat::F32)
-        .unwrap_or_else(|| configs.get(0).expect(""))
-        .clone()
-        .with_max_sample_rate();
-
-    let conf: cpal::StreamConfig = config.into();
-
-    let filter = match config.sample_format() {
-        cpal::SampleFormat::I8 => noise::<i8>(&device, &config.into()),
-        cpal::SampleFormat::I16 => noise::<i16>(&device, &config.into()),
-        cpal::SampleFormat::I32 => noise::<i32>(&device, &config.into()),
-        cpal::SampleFormat::I64 => noise::<i64>(&device, &config.into()),
-        cpal::SampleFormat::U8 => noise::<u8>(&device, &config.into()),
-        cpal::SampleFormat::U16 => noise::<u16>(&device, &config.into()),
-        cpal::SampleFormat::U32 => noise::<u32>(&device, &config.into()),
-        cpal::SampleFormat::U64 => noise::<u64>(&device, &config.into()),
-        cpal::SampleFormat::F32 => noise::<f32>(&device, &config.into()),
-        cpal::SampleFormat::F64 => noise::<f64>(&device, &config.into()),
-        _ => unreachable!("Unsupported sample format"),
-    }?;
+        .expect("No default output device detected");
+    let noise = NoiseMaker::new(&device)?;
 
     // pre run
     enable_raw_mode()?;
@@ -64,7 +89,8 @@ fn main() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // run
-    let mut app = app::App::new(filter);
+    noise.play()?;
+    let mut app = app::App::new(noise);
     let res = run_app(&mut terminal, &mut app);
 
     // post run
@@ -77,44 +103,4 @@ fn main() -> anyhow::Result<()> {
     terminal.show_cursor()?;
 
     return Ok(());
-}
-
-fn noise<T>(
-    device: &cpal::Device,
-    config: &cpal::StreamConfig,
-) -> Result<Arc<Mutex<filter::biquad::StreamBiquadFilter>>, anyhow::Error>
-where
-    T: SizedSample + FromSample<f32> + 'static,
-    Standard: Distribution<T>,
-    f32: FromSample<T>,
-{
-    let coefs =
-        filter::coefs::Coefficients::new_peaking_eq(config.sample_rate.0 as f32, 100.0, 30.0, 0.6);
-
-    let filter = Arc::new(Mutex::new(filter::biquad::StreamBiquadFilter::new(
-        config.channels,
-        &coefs,
-    )));
-    let filter_cloned = filter.clone();
-
-    let stream = device.build_output_stream(
-        &config,
-        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            let mut rng = thread_rng();
-            data.fill_with(|| rng.gen::<T>());
-            filter_cloned.lock().unwrap().process(data);
-        },
-        move |err| println!("{:?}", err),
-        None,
-    )?;
-
-    let coefs2 =
-        filter::coefs::Coefficients::new_peaking_eq(config.sample_rate.0 as f32, 500.0, 25.0, 0.6);
-
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    filter.lock().unwrap().set_coefs(coefs2);
-
-    stream.play()?;
-    std::thread::sleep(std::time::Duration::from_millis(1000000));
-    Ok(filter)
 }

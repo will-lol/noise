@@ -87,12 +87,12 @@ impl StreamBiquadFilter {
     }
 }
 
-impl<T> StreamFilter<T> for StreamBiquadFilter
-where
-    T: cpal::Sample + cpal::FromSample<f32>,
-    f32: cpal::FromSample<T>,
-{
-    fn process(&mut self, data: &mut [T]) {
+impl StreamFilter for StreamBiquadFilter {
+    fn process<T>(&mut self, data: &mut [T])
+    where
+        T: cpal::Sample + cpal::FromSample<f32>,
+        f32: FromSample<T>,
+    {
         for i in 1..=(self.channels) {
             data.iter_mut()
                 .skip((self.channels - i) as usize)
